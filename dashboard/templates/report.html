@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexus Scan Report</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0d1117; color: #c9d1d9; font-family: 'Segoe UI', system-ui, sans-serif; padding: 24px; max-width: 900px; margin: 0 auto; }
+  h1 { color: #58a6ff; margin-bottom: 8px; }
+  .meta { color: #8b949e; font-size: 14px; margin-bottom: 24px; }
+  .filters { margin-bottom: 20px; }
+  .filters select { background: #161b22; color: #c9d1d9; border: 1px solid #30363d; padding: 6px 12px; border-radius: 6px; margin-right: 8px; }
+  .finding { background: #161b22; border: 1px solid #30363d; border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
+  .finding-header { padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+  .finding-header:hover { background: #21262d; }
+  .finding-body { padding: 0 16px 16px; display: none; }
+  .finding-body.open { display: block; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .badge.critical { background: #f8514933; color: #f85149; }
+  .badge.high { background: #d2992233; color: #d29922; }
+  .badge.medium { background: #58a6ff33; color: #58a6ff; }
+  .badge.low { background: #3fb95033; color: #3fb950; }
+  code { background: #21262d; padding: 12px; display: block; border-radius: 6px; font-size: 13px; overflow-x: auto; white-space: pre; margin: 8px 0; }
+  .export-btn { display: inline-block; margin-top: 16px; padding: 10px 20px; background: #238636; color: white; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; font-size: 14px; }
+</style>
+</head>
+<body>
+  <h1>🛡️ Scan Report</h1>
+  <div class="meta">
+    Session: {{ scan.session_id }} | Target: {{ scan.target_path or 'N/A' }} |
+    Created: {{ scan.created_at or 'N/A' }} |
+    Facts: {{ scan.fact_count or 0 }} | Vulns: {{ scan.evidence_count or 0 }}
+  </div>
+
+  <div class="filters">
+    <select id="filter-sev" onchange="applyFilters()">
+      <option value="">All Severities</option>
+      <option value="critical">Critical</option>
+      <option value="high">High</option>
+      <option value="medium">Medium</option>
+      <option value="low">Low</option>
+    </select>
+  </div>
+
+  <div id="findings">
+    <p style="color:#484f58">Detailed findings available via API: /api/session/{{ scan.session_id }}</p>
+  </div>
+
+  <a href="/api/export/{{ scan.session_id }}/pdf" class="export-btn">📄 Export PDF</a>
+
+<script>
+function applyFilters() {
+  const sev = document.getElementById('filter-sev').value;
+  document.querySelectorAll('.finding').forEach(el => {
+    if (!sev || el.dataset.severity === sev) el.style.display = '';
+    else el.style.display = 'none';
+  });
+}
+
+document.querySelectorAll('.finding-header').forEach(h => {
+  h.addEventListener('click', () => {
+    h.nextElementSibling.classList.toggle('open');
+  });
+});
+</script>
+</body>
+</html>

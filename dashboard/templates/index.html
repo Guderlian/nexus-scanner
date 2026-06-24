@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexus P3 Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0d1117; color: #c9d1d9; font-family: 'Segoe UI', system-ui, sans-serif; display: flex; min-height: 100vh; }
+  .sidebar { width: 240px; background: #161b22; border-right: 1px solid #30363d; padding: 20px; flex-shrink: 0; }
+  .sidebar h2 { color: #58a6ff; font-size: 16px; margin-bottom: 16px; }
+  .sidebar .project { padding: 8px 12px; margin-bottom: 4px; border-radius: 6px; cursor: pointer; color: #8b949e; }
+  .sidebar .project:hover { background: #21262d; color: #c9d1d9; }
+  .sidebar .project.active { background: #1f6feb33; color: #58a6ff; }
+  .sidebar .add-btn { display: block; margin-top: 12px; padding: 8px; background: #238636; color: white; border: none; border-radius: 6px; cursor: pointer; width: 100%; font-size: 13px; }
+  .main { flex: 1; padding: 24px; overflow-y: auto; }
+  h1 { color: #58a6ff; margin-bottom: 24px; font-size: 24px; }
+  h2 { color: #8b949e; font-size: 14px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px; }
+  .card .label { color: #8b949e; font-size: 12px; text-transform: uppercase; margin-bottom: 8px; }
+  .card .value { color: #f0f6fc; font-size: 32px; font-weight: 700; }
+  .card .value.green { color: #3fb950; } .card .value.blue { color: #58a6ff; }
+  .card .value.yellow { color: #d29922; } .card .value.red { color: #f85149; }
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px; }
+  .chart-box { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px; }
+  .chart-box canvas { max-height: 250px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 32px; }
+  th { background: #161b22; color: #8b949e; font-size: 12px; text-transform: uppercase; text-align: left; padding: 12px; border-bottom: 1px solid #30363d; }
+  td { padding: 10px 12px; border-bottom: 1px solid #21262d; font-size: 14px; }
+  tr:hover { background: #161b22; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .badge.critical { background: #f8514933; color: #f85149; }
+  .badge.high { background: #d2992233; color: #d29922; }
+  .badge.medium { background: #58a6ff33; color: #58a6ff; }
+  .badge.done { background: #3fb95033; color: #3fb950; }
+  .badge.running { background: #58a6ff33; color: #58a6ff; }
+</style>
+</head>
+<body>
+  <div class="sidebar">
+    <h2>🛡️ Projects</h2>
+    <div id="project-list"><div class="project active">Default Project</div></div>
+    <button class="add-btn" onclick="createProject()">+ New Project</button>
+  </div>
+  <div class="main">
+    <h1>Nexus P3 Dashboard</h1>
+
+    <h2>Global Statistics</h2>
+    <div class="cards">
+      <div class="card"><div class="label">Total Scans</div><div class="value blue" id="s-scans">—</div></div>
+      <div class="card"><div class="label">Vulnerabilities Found</div><div class="value red" id="s-vulns">—</div></div>
+      <div class="card"><div class="label">Cache Hit Rate</div><div class="value green" id="s-cache">—</div></div>
+      <div class="card"><div class="label">Completed</div><div class="value yellow" id="s-done">—</div></div>
+    </div>
+
+    <h2>Trends & Distribution</h2>
+    <div class="charts">
+      <div class="chart-box"><canvas id="trendChart"></canvas></div>
+      <div class="chart-box"><canvas id="distChart"></canvas></div>
+    </div>
+
+    <h2>Recent Sessions</h2>
+    <table>
+      <thead><tr><th>Session</th><th>Target</th><th>Created</th><th>Facts</th><th>Vulns</th><th>Status</th></tr></thead>
+      <tbody id="sessions-body"><tr><td colspan="6" style="color:#484f58;text-align:center">Loading...</td></tr></tbody>
+    </table>
+  </div>
+
+<script>
+let trendChart, distChart;
+
+async function loadStats() {
+  try {
+    const r = await fetch('/api/stats');
+    const d = await r.json();
+    const s = d.store || {}, c = d.cache || {};
+    document.getElementById('s-scans').textContent = s.total_sessions || 0;
+    document.getElementById('s-vulns').textContent = s.total_evidences || 0;
+    document.getElementById('s-cache').textContent = c.hit_rate ? (c.hit_rate*100).toFixed(0)+'%' : '0%';
+    document.getElementById('s-done').textContent = s.completed_sessions || 0;
+  } catch(e) {}
+}
+
+async function loadSessions() {
+  try {
+    const r = await fetch('/api/sessions');
+    const d = await r.json();
+    const tbody = document.getElementById('sessions-body');
+    if (!d.sessions?.length) { tbody.innerHTML = '<tr><td colspan="6" style="color:#484f58;text-align:center">No sessions yet</td></tr>'; return; }
+    tbody.innerHTML = d.sessions.map(s => `<tr>
+      <td>${s.session_id}</td><td>${s.target_path||'—'}</td><td>${(s.created_at||'').slice(0,16)}</td>
+      <td>${s.fact_count||0}</td><td>${s.evidence_count||0}</td>
+      <td><span class="badge ${s.completed_at?'done':'running'}">${s.completed_at?'Done':'Running'}</span></td>
+    </tr>`).join('');
+  } catch(e) {}
+}
+
+async function loadTrends() {
+  try {
+    const r = await fetch('/api/trends');
+    const d = await r.json();
+    const labels = (d.trends||[]).map(t => t.date);
+    const data = (d.trends||[]).map(t => t.vulns);
+    if (trendChart) trendChart.destroy();
+    trendChart = new Chart(document.getElementById('trendChart'), {
+      type: 'line',
+      data: { labels, datasets: [{ label: 'Vulnerabilities', data, borderColor: '#f85149', backgroundColor: '#f8514933', fill: true }] },
+      options: { responsive: true, plugins: { title: { display: true, text: 'Vulnerability Trends', color: '#c9d1d9' } }, scales: { x: { ticks: { color: '#8b949e' } }, y: { ticks: { color: '#8b949e' } } } }
+    });
+  } catch(e) {}
+}
+
+async function loadDistribution() {
+  try {
+    const r = await fetch('/api/vuln_distribution');
+    const d = await r.json();
+    const dist = d.distribution || {};
+    const labels = Object.keys(dist);
+    const data = Object.values(dist);
+    const colors = ['#f85149','#d29922','#58a6ff','#3fb950','#bc8cff','#f778ba','#79c0ff','#ffa657'];
+    if (distChart) distChart.destroy();
+    distChart = new Chart(document.getElementById('distChart'), {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data, backgroundColor: colors }] },
+      options: { responsive: true, plugins: { title: { display: true, text: 'Vulnerability Types', color: '#c9d1d9' }, legend: { labels: { color: '#c9d1d9' } } } }
+    });
+  } catch(e) {}
+}
+
+async function loadProjects() {
+  try {
+    const r = await fetch('/projects');
+    const d = await r.json();
+    const el = document.getElementById('project-list');
+    if (d.projects?.length) {
+      el.innerHTML = d.projects.map((p,i) => `<div class="project ${i===0?'active':''}">${p.name}</div>`).join('');
+    }
+  } catch(e) {}
+}
+
+async function createProject() {
+  const name = prompt('Project name:');
+  if (!name) return;
+  await fetch('/projects', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
+  loadProjects();
+}
+
+loadStats(); loadSessions(); loadTrends(); loadDistribution(); loadProjects();
+setInterval(() => { loadStats(); loadSessions(); }, 10000);
+</script>
+</body>
+</html>

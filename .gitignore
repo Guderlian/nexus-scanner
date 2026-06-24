@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Environment (NEVER commit)
+.env
+
+# Cache and runtime
+.nexus_cache/
+outputs/
+*.db
+
+# Test and benchmark
+benchmark/
+testbed/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Reports
+*.pdf
+nexus_report*
+test-results.xml
+
+# Temp scripts
+check_leaks.py

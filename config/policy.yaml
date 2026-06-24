@@ -1,0 +1,19 @@
+model:
+  temperature: 0
+  max_tokens: 1500
+  timeout_seconds: 30
+  retry_count: 2
+
+perception:
+  min_confidence: 0.3
+  context_lines_before: 3
+  supported_languages: ["python", "java"]
+
+verification:
+  min_verification_confidence: 0.5
+  semgrep_timeout_seconds: 60
+  tool_unavailable_action: "mark_manual"
+
+budget:
+  max_fact_cards_per_run: 50
+  max_llm_calls_per_run: 100

@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  nexus-scanner:
+    build: .
+    image: nexus-security-scanner:latest
+    container_name: nexus-scanner
+    environment:
+      - NEXUS_API_KEY=${NEXUS_API_KEY}
+      - NEXUS_BASE_URL=${NEXUS_BASE_URL}
+      - NEXUS_MODEL=${NEXUS_MODEL:-mimo-v2.5-pro-max}
+    volumes:
+      - ./target:/target:ro
+      - ./outputs:/app/outputs
+      - nexus-cache:/app/.nexus_cache
+    command: >
+      --target /target
+      --output /app/outputs/report
+      --vuln-types ALL
+      --generate-poc
+      --compliance owasp,cwe
+
+  nexus-dashboard:
+    build: .
+    image: nexus-security-scanner:latest
+    container_name: nexus-dashboard
+    environment:
+      - NEXUS_API_KEY=${NEXUS_API_KEY}
+      - NEXUS_BASE_URL=${NEXUS_BASE_URL}
+    ports:
+      - "5000:5000"
+    volumes:
+      - nexus-cache:/app/.nexus_cache
+      - ./outputs:/app/outputs
+    command: ["python", "-m", "dashboard.server"]
+    depends_on:
+      - nexus-scanner
+
+volumes:
+  nexus-cache:

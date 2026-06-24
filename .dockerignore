@@ -1,0 +1,11 @@
+.git
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+benchmark/
+testbed/
+*.log
+.nexus_cache/
+outputs/
+.env
